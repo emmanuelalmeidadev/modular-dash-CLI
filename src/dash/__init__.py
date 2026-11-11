@@ -1,0 +1,1 @@
+"""Modular CLI personal dashboard."""

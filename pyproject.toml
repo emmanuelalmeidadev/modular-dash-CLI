@@ -1,0 +1,26 @@
+[project]
+name = "dash-cli"
+version = "0.1.0"
+description = "Modular CLI personal dashboard"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.27",
+    "rich>=13.7",
+    "platformdirs>=4.2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+dash = "dash.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dash"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

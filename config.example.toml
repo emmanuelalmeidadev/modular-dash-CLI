@@ -1,0 +1,20 @@
+# Copy to your dash config location (run `dash` once to see the expected path),
+# or pass it explicitly: dash --config config.example.toml
+
+timeout = 10   # seconds to wait for any single widget
+
+[[widgets]]
+id = "weather"
+[widgets.options]
+location = "Lisbon"
+units = "metric"
+
+[[widgets]]
+id = "github"
+[widgets.options]
+limit = 5
+
+[[widgets]]
+id = "habits"
+[widgets.options]
+path = "~/habits.toml"
