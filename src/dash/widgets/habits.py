@@ -11,7 +11,7 @@ class HabitsError(Exception):
     pass
 
 
-def _to_date(value: Any, habit: str) -> date:
+def to_date(value: Any, habit: str) -> date:
     if isinstance(value, date):  # TOML native local date
         return value
     if isinstance(value, str):
@@ -60,6 +60,6 @@ class HabitsWidget:
             name = entry.get("name") if isinstance(entry, dict) else None
             if not isinstance(name, str):
                 raise HabitsError(f"habits file {path}: every [[habits]] entry needs a string 'name'")
-            days = {_to_date(d, name) for d in entry.get("done", [])}
+            days = {to_date(d, name) for d in entry.get("done", [])}
             habits.append({"name": name, "done_today": today in days, "streak": current_streak(days, today)})
         return {"date": today.isoformat(), "habits": habits}

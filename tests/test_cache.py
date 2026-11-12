@@ -62,6 +62,25 @@ def test_stale_data_served_when_fetch_fails(tmp_path, fake_widget):
     state["fail"] = True
     r = run(reg, cache)
     assert r.status == "ok" and r.stale and r.data == {"v": 7}
+    assert r.stale_reason == "down" and r.stale_age_seconds == 500
+
+
+def test_fresh_and_cached_results_carry_no_stale_details(tmp_path, fake_widget):
+    clock, cache, w, reg = setup(tmp_path, fake_widget)
+    fresh = run(reg, cache)
+    clock.now += 30
+    cached = run(reg, cache)
+    for r in (fresh, cached):
+        assert not r.stale and r.stale_reason is None and r.stale_age_seconds is None
+
+
+def test_error_result_has_no_stale_details(tmp_path, fake_widget):
+    def fetch(o):
+        raise RuntimeError("down")
+
+    _, cache, w, reg = setup(tmp_path, fake_widget, fetch)
+    r = run(reg, cache)
+    assert r.status == "error" and r.stale_reason is None and r.stale_age_seconds is None
 
 
 def test_errors_are_not_cached(tmp_path, fake_widget):

@@ -32,11 +32,19 @@ unlisted widgets do not run. Per-widget setup:
 dash                 # render the dashboard once
 dash --json          # one JSON document on stdout, nothing else
 dash --refresh       # ignore cached results
+dash habit done "Read"                      # mark a habit done today
+dash habit done "Read" --date 2026-11-10    # backfill a missed day
 ```
+
+The terminal output starts with a header showing today's weekday, date and the
+time it was generated. `--json` output carries the same moment as
+`generated_at`, plus `stale_reason` and `stale_age_seconds` on each widget
+(empty unless the data is stale).
 
 Results from remote widgets are cached (weather 30 min, GitHub 5 min) so
 repeat runs are instant. If a fetch fails and an older result exists, it is
-shown marked `(stale)`. One failing widget never breaks the others. The exit
+shown marked `(stale, 2 h old)` with the reason the refresh failed, for
+example `Refresh failed: set the GITHUB_TOKEN environment variable`. One failing widget never breaks the others. The exit
 status is 0 whenever a dashboard was produced, and non-zero only if `dash`
 could not run at all (for example, an invalid config file). Set `NO_COLOR` to
 disable styling; output is also plain when piped.

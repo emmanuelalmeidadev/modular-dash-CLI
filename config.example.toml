@@ -6,7 +6,7 @@ timeout = 10   # seconds to wait for any single widget
 [[widgets]]
 id = "weather"
 [widgets.options]
-location = "Lisbon"
+location = "Culiacan"
 units = "metric"
 
 [[widgets]]
