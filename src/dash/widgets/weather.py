@@ -1,9 +1,18 @@
 """Weather widget: current conditions and today's high/low (Open-Meteo, no API key)."""
 from __future__ import annotations
 
-from typing import Any
+import time
+from typing import Any, Callable
 
 import httpx
+
+# Total time budget for ALL attempts. It stays below the framework's default 10 s widget timeout,
+# so a failure still raises (and the stale-data fallback applies) instead of being cut off.
+TOTAL_BUDGET = 8.0
+ATTEMPT_TIMEOUT = 4.0
+MIN_TIME_FOR_RETRY = 1.0
+# Only connection-level problems are worth one retry; HTTP error responses are not.
+_TRANSIENT = (httpx.ConnectError, httpx.TimeoutException, httpx.NetworkError)
 
 GEOCODE_URL = "https://geocoding-api.open-meteo.com/v1/search"
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
@@ -32,8 +41,24 @@ class WeatherWidget:
     title = "Weather"
     default_ttl = 1800
 
-    def __init__(self, client: httpx.Client | None = None):
+    def __init__(self, client: httpx.Client | None = None, clock: Callable[[], float] = time.monotonic):
         self._client = client
+        self._clock = clock
+
+    def _get(self, client: httpx.Client, url: str, params: dict[str, Any], deadline: float) -> httpx.Response:
+        """GET with at most one retry on a transient failure, inside the overall deadline."""
+        attempt = 0
+        while True:
+            attempt += 1
+            timeout = max(0.1, min(ATTEMPT_TIMEOUT, deadline - self._clock()))
+            try:
+                response = client.get(url, params=params, timeout=timeout)
+            except _TRANSIENT:
+                if attempt >= 2 or deadline - self._clock() < MIN_TIME_FOR_RETRY:
+                    raise
+                continue
+            response.raise_for_status()
+            return response
 
     def fetch(self, options: dict[str, Any]) -> dict[str, Any]:
         location = options.get("location")
@@ -43,10 +68,11 @@ class WeatherWidget:
         if units not in ("metric", "imperial"):
             raise WeatherError("option 'units' must be 'metric' or 'imperial'")
 
-        client = self._client or httpx.Client(timeout=8.0)
+        client = self._client or httpx.Client(timeout=ATTEMPT_TIMEOUT)
+        deadline = self._clock() + TOTAL_BUDGET
         try:
-            place = self._geocode(client, str(location).strip())
-            forecast = self._forecast(client, place, units)
+            place = self._geocode(client, str(location).strip(), deadline)
+            forecast = self._forecast(client, place, units, deadline)
         except httpx.HTTPError as exc:
             raise WeatherError(f"weather service unavailable: {exc.__class__.__name__}") from exc
         finally:
@@ -66,9 +92,8 @@ class WeatherWidget:
         except (KeyError, IndexError, TypeError):
             raise WeatherError("weather service returned an unexpected response") from None
 
-    def _geocode(self, client: httpx.Client, name: str) -> dict[str, Any]:
-        resp = client.get(GEOCODE_URL, params={"name": name, "count": 1})
-        resp.raise_for_status()
+    def _geocode(self, client: httpx.Client, name: str, deadline: float) -> dict[str, Any]:
+        resp = self._get(client, GEOCODE_URL, {"name": name, "count": 1}, deadline)
         try:
             hit = resp.json()["results"][0]
             label = ", ".join(p for p in (hit["name"], hit.get("country")) if p)
@@ -76,7 +101,7 @@ class WeatherWidget:
         except (KeyError, IndexError, TypeError, ValueError):
             raise WeatherError(f"location not found: {name}") from None
 
-    def _forecast(self, client: httpx.Client, place: dict[str, Any], units: str) -> dict[str, Any]:
+    def _forecast(self, client: httpx.Client, place: dict[str, Any], units: str, deadline: float) -> dict[str, Any]:
         params = {
             "latitude": place["lat"],
             "longitude": place["lon"],
@@ -86,8 +111,7 @@ class WeatherWidget:
             "timezone": "auto",
             "temperature_unit": "fahrenheit" if units == "imperial" else "celsius",
         }
-        resp = client.get(FORECAST_URL, params=params)
-        resp.raise_for_status()
+        resp = self._get(client, FORECAST_URL, params, deadline)
         try:
             return resp.json()
         except ValueError:

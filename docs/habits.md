@@ -2,11 +2,11 @@
 
 Shows today's status and current streak for habits you track by hand in a
 TOML file. Showing the dashboard only ever **reads** this file. The only thing
-that writes to it is the explicit `dash habit done` command (see below).
+that writes to it is the explicit `pdash habit done` command (see below).
 
 ## Enable it
 
-In your `dash` config:
+In your `pdash` config:
 
 ```toml
 [[widgets]]
@@ -43,8 +43,8 @@ until the day is over). Missing any earlier day resets it to zero.
 Instead of editing the file, record a completion from the command line:
 
 ```bash
-dash habit done "Run"
-dash habit done "Read 20 pages" --date 2026-11-10
+pdash habit done "Run"
+pdash habit done "Read 20 pages" --date 2026-11-10
 ```
 
 - The name is matched case-insensitively and must match exactly. An unknown

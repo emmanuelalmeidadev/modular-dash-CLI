@@ -116,12 +116,12 @@ def test_documented_habit_done_commands_work_as_written(tmp_path):
     cfg.write_text(f'[[widgets]]\nid = "habits"\n[widgets.options]\npath = "{habits}"\n')
 
     commands = [shlex.split(line) for block in re.findall(r"```bash\n(.*?)```", doc, re.S)
-                for line in block.splitlines() if line.startswith("dash habit done")]
-    assert commands, "docs/habits.md must show at least one `dash habit done` example"
+                for line in block.splitlines() if line.startswith("pdash habit done")]
+    assert commands, "docs/habits.md must show at least one `pdash habit done` example"
     now = datetime(2026, 11, 12, 9, 0, tzinfo=timezone.utc)
     for argv in commands:
         out, err = io.StringIO(), io.StringIO()
         code = main(["--config", str(cfg), *argv[1:]], stdout=out, stderr=err, clock=lambda: now,
                     registry=Registry(), cache=Cache(tmp_path / "c"))
         assert code == 0, (argv, err.getvalue())
-    assert "2026-11-12" in habits.read_text()  # `dash habit done "Run"` recorded today
+    assert "2026-11-12" in habits.read_text()  # `pdash habit done "Run"` recorded today

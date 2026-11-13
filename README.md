@@ -1,4 +1,4 @@
-# dash
+# pdash
 
 A small, modular CLI dashboard. It fetches a few widgets in parallel (weather,
 GitHub tasks, habits), prints them once, and exits. Use `--json` to script it.
@@ -11,14 +11,47 @@ Requires Python 3.11+.
 uv venv --python 3.12 && uv pip install -e ".[dev]"   # or: pipx install .
 ```
 
-## Configure
+### Install as a global command
+
+```bash
+uv tool install .          # or: pipx install .
+command -v pdash           # should print the installed path, not nothing
+```
+
+The command is named `pdash` on purpose: `dash` is the system shell on
+macOS and many Linux systems and can shadow or be shadowed depending on PATH.
+
+Upgrading from the old `dash` command: it no longer exists. The old cache
+folder (for example `~/Library/Caches/dash` on macOS) is unused and can be
+deleted; the cache and config folders are now named `pdash`.
+
+## Set up (first run)
+
+```bash
+pdash init --location "Your City"
+```
+
+This creates a starter config in your platform config folder and a starter
+`~/habits.toml`, then prints the exact paths and next steps. It never
+overwrites a file you already have: existing files are reported as skipped.
+Then just run `pdash`. Options:
+
+- `--location CITY` sets the weather city (without it a placeholder is used
+  and you are told to change it).
+- `--config PATH` writes the config somewhere else; run `pdash --config PATH`
+  afterwards.
+
+For GitHub, set the `GITHUB_TOKEN` environment variable, or use `token_cmd`
+(see [docs/github.md](docs/github.md)). `init` never asks for or prints a token.
+
+## Configure by hand
 
 ```bash
 cp config.example.toml my-config.toml   # then edit it
-dash --config my-config.toml
+pdash --config my-config.toml
 ```
 
-Without `--config`, `dash` looks in your platform config directory and tells
+Without `--config`, `pdash` looks in your platform config directory and tells
 you the exact path if the file is missing. Widgets run in the order listed;
 unlisted widgets do not run. Per-widget setup:
 
@@ -29,11 +62,11 @@ unlisted widgets do not run. Per-widget setup:
 ## Use
 
 ```bash
-dash                 # render the dashboard once
-dash --json          # one JSON document on stdout, nothing else
-dash --refresh       # ignore cached results
-dash habit done "Read"                      # mark a habit done today
-dash habit done "Read" --date 2026-11-10    # backfill a missed day
+pdash                # render the dashboard once
+pdash --json         # one JSON document on stdout, nothing else
+pdash --refresh      # ignore cached results
+pdash habit done "Read"                     # mark a habit done today
+pdash habit done "Read" --date 2026-11-10   # backfill a missed day
 ```
 
 The terminal output starts with a header showing today's weekday, date and the
@@ -45,7 +78,7 @@ Results from remote widgets are cached (weather 30 min, GitHub 5 min) so
 repeat runs are instant. If a fetch fails and an older result exists, it is
 shown marked `(stale, 2 h old)` with the reason the refresh failed, for
 example `Refresh failed: set the GITHUB_TOKEN environment variable`. One failing widget never breaks the others. The exit
-status is 0 whenever a dashboard was produced, and non-zero only if `dash`
+status is 0 whenever a dashboard was produced, and non-zero only if `pdash`
 could not run at all (for example, an invalid config file). Set `NO_COLOR` to
 disable styling; output is also plain when piped.
 

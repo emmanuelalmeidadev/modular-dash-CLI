@@ -70,8 +70,8 @@ def test_stale_panel_without_details_still_renders(monkeypatch):
 
 
 def test_header_shows_weekday_date_and_time(monkeypatch):
-    assert header_text(NOW) == "dash - Thursday 2026-11-12, 14:03"
-    assert render([WEATHER], monkeypatch).splitlines()[0].strip() == "dash - Thursday 2026-11-12, 14:03"
+    assert header_text(NOW) == "pdash - Thursday 2026-11-12, 14:03"
+    assert render([WEATHER], monkeypatch).splitlines()[0].strip() == "pdash - Thursday 2026-11-12, 14:03"
 
 
 def test_header_printed_even_with_no_widgets(monkeypatch):

@@ -15,6 +15,14 @@ location = "Lisbon"   # required
 units = "metric"      # optional: "metric" (default) or "imperial"
 ```
 
+## Retries
+
+If a request fails because of a connection problem or a timeout, the widget
+retries it once. All attempts together are limited to 8 seconds, so a bad
+connection never makes `pdash` hang; it falls back to the last cached result
+(marked stale, with the reason) when there is one. Unknown locations and error
+responses from the service are not retried.
+
 ## Errors
 
 - No `location` configured: the widget shows an error naming the option.

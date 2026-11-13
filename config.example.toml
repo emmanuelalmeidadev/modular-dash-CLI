@@ -1,5 +1,5 @@
-# Copy to your dash config location (run `dash` once to see the expected path),
-# or pass it explicitly: dash --config config.example.toml
+# Copy to your pdash config location (run `pdash` once to see the expected path),
+# or pass it explicitly: pdash --config config.example.toml
 
 timeout = 10   # seconds to wait for any single widget
 
