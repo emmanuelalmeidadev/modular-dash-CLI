@@ -96,3 +96,32 @@ def test_documented_example_parses(tmp_path):
     habits = widget().fetch({"path": str(p)})["habits"]
     assert [h["name"] for h in habits] == ["Read 20 pages", "Run"]
     assert habits[0]["streak"] == 3
+
+
+def test_documented_habit_done_commands_work_as_written(tmp_path):
+    import io
+    import re
+    import shlex
+    from datetime import datetime, timezone
+    from pathlib import Path
+
+    from dash.cache import Cache
+    from dash.cli import main
+    from dash.registry import Registry
+
+    doc = (Path(__file__).parent.parent / "docs" / "habits.md").read_text()
+    example = next(b for b in re.findall(r"```toml\n(.*?)```", doc, re.S) if "[[habits]]" in b and "name =" in b and "id =" not in b)
+    habits = write(tmp_path, example)
+    cfg = tmp_path / "config.toml"
+    cfg.write_text(f'[[widgets]]\nid = "habits"\n[widgets.options]\npath = "{habits}"\n')
+
+    commands = [shlex.split(line) for block in re.findall(r"```bash\n(.*?)```", doc, re.S)
+                for line in block.splitlines() if line.startswith("dash habit done")]
+    assert commands, "docs/habits.md must show at least one `dash habit done` example"
+    now = datetime(2026, 11, 12, 9, 0, tzinfo=timezone.utc)
+    for argv in commands:
+        out, err = io.StringIO(), io.StringIO()
+        code = main(["--config", str(cfg), *argv[1:]], stdout=out, stderr=err, clock=lambda: now,
+                    registry=Registry(), cache=Cache(tmp_path / "c"))
+        assert code == 0, (argv, err.getvalue())
+    assert "2026-11-12" in habits.read_text()  # `dash habit done "Run"` recorded today

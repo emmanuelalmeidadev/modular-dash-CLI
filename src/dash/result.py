@@ -15,6 +15,8 @@ class WidgetResult:
     data: dict[str, Any] = field(default_factory=dict)
     error: str | None = None
     stale: bool = False
+    stale_reason: str | None = None  # why the fresh fetch failed (stale results only)
+    stale_age_seconds: float | None = None  # age of the cached data (stale results only)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -24,6 +26,8 @@ class WidgetResult:
             "data": self.data,
             "error": self.error,
             "stale": self.stale,
+            "stale_reason": self.stale_reason,
+            "stale_age_seconds": self.stale_age_seconds,
         }
 
     @classmethod
@@ -35,6 +39,8 @@ class WidgetResult:
             data=raw.get("data", {}),
             error=raw.get("error"),
             stale=raw.get("stale", False),
+            stale_reason=raw.get("stale_reason"),
+            stale_age_seconds=raw.get("stale_age_seconds"),
         )
 
     @classmethod

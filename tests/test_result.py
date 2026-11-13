@@ -25,4 +25,21 @@ def test_stale_result_roundtrips():
 
 def test_serialized_form_has_no_presentation_fields():
     keys = set(WidgetResult("a", "A", "ok").to_dict())
-    assert keys == {"id", "title", "status", "data", "error", "stale"}
+    assert keys == {"id", "title", "status", "data", "error", "stale", "stale_reason", "stale_age_seconds"}
+
+
+def test_stale_details_roundtrip():
+    r = WidgetResult("g", "G", "ok", data={"a": 1}, stale=True, stale_reason="rate limit", stale_age_seconds=7200.0)
+    again = roundtrip(r)
+    assert again == r and again.stale_reason == "rate limit" and again.stale_age_seconds == 7200.0
+
+
+def test_fresh_result_has_no_stale_details():
+    d = WidgetResult("a", "A", "ok").to_dict()
+    assert d["stale_reason"] is None and d["stale_age_seconds"] is None
+
+
+def test_legacy_dict_without_stale_details_still_loads():
+    legacy = {"id": "a", "title": "A", "status": "ok", "data": {}, "error": None, "stale": True}
+    r = WidgetResult.from_dict(legacy)
+    assert r.stale and r.stale_reason is None and r.stale_age_seconds is None

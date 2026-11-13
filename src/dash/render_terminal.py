@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import datetime
 from typing import Any, Callable, TextIO
 
 from rich import box
@@ -99,11 +100,42 @@ def _body(result: WidgetResult) -> RenderableType:
         return _generic(result.data)  # data shape unexpected: degrade, don't crash
 
 
-def render_terminal(results: list[WidgetResult], console: Console) -> None:
+def humanize_age(seconds: float) -> str:
+    """Short human-readable age: 'just now', '5 min', '2 h', '3 d'."""
+    if seconds < 60:
+        return "just now"
+    if seconds < 3600:
+        return f"{int(seconds // 60)} min"
+    if seconds < 86400:
+        return f"{int(seconds // 3600)} h"
+    return f"{int(seconds // 86400)} d"
+
+
+def _stale_label(result: WidgetResult) -> str:
+    if result.stale_age_seconds is None:
+        return "stale"
+    age = humanize_age(result.stale_age_seconds)
+    return "stale, just now" if age == "just now" else f"stale, {age} old"
+
+
+def header_text(generated_at: datetime) -> str:
+    return f"dash - {generated_at:%A %Y-%m-%d}, {generated_at:%H:%M}"
+
+
+def _panel_body(result: WidgetResult) -> RenderableType:
+    body = _body(result)
+    if result.stale:
+        reason = result.stale_reason or "unknown reason"
+        return Group(body, Text(""), Text(f"Showing cached data. Refresh failed: {reason}", style="yellow"))
+    return body
+
+
+def render_terminal(results: list[WidgetResult], console: Console, generated_at: datetime) -> None:
+    console.print(Text(header_text(generated_at), style="bold"))
     if not results:
         console.print("No widgets configured.")
         return
     for result in results:
-        title = result.title + (" (stale)" if result.stale else "")
+        title = result.title + (f" ({_stale_label(result)})" if result.stale else "")
         style = "red" if result.status == "error" else ("yellow" if result.stale else "blue")
-        console.print(Panel(_body(result), title=title, title_align="left", border_style=style, expand=True))
+        console.print(Panel(_panel_body(result), title=title, title_align="left", border_style=style, expand=True))

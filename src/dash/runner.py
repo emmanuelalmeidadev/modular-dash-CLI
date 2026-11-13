@@ -20,7 +20,10 @@ def _fetch_with_cache(widget: Widget, wc: WidgetConfig, cache: Cache, refresh: b
     except Exception as exc:  # isolation: any widget failure becomes an error result
         message = str(exc) or exc.__class__.__name__
         if cached:
-            return WidgetResult(widget.id, widget.title, "ok", data=cached[0], stale=True)
+            return WidgetResult(
+                widget.id, widget.title, "ok", data=cached[0],
+                stale=True, stale_reason=message, stale_age_seconds=cached[1],
+            )
         return WidgetResult.failure(widget.id, widget.title, message)
     if ttl > 0:
         cache.put(widget.id, wc.options, data)
