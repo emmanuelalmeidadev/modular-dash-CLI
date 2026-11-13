@@ -8,6 +8,7 @@ from typing import Any
 
 from platformdirs import user_config_path
 
+APP_NAME = "pdash"  # command name; also names the config and cache directories
 DEFAULT_TIMEOUT = 10.0
 
 
@@ -29,7 +30,7 @@ class Config:
 
 
 def default_config_path() -> Path:
-    return user_config_path("dash") / "config.toml"
+    return user_config_path(APP_NAME) / "config.toml"
 
 
 def load_config(path: Path | None = None) -> Config:

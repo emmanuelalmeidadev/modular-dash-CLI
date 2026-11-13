@@ -12,6 +12,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
+from .config import APP_NAME
 from .result import WidgetResult
 
 
@@ -119,7 +120,7 @@ def _stale_label(result: WidgetResult) -> str:
 
 
 def header_text(generated_at: datetime) -> str:
-    return f"dash - {generated_at:%A %Y-%m-%d}, {generated_at:%H:%M}"
+    return f"{APP_NAME} - {generated_at:%A %Y-%m-%d}, {generated_at:%H:%M}"
 
 
 def _panel_body(result: WidgetResult) -> RenderableType:

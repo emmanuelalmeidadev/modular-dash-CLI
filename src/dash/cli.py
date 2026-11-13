@@ -1,4 +1,4 @@
-"""The `dash` command: single pass, fetch -> render -> exit. Also `dash habit done`."""
+"""The `pdash` command: single pass, fetch -> render -> exit. Also `pdash habit done`."""
 from __future__ import annotations
 
 import argparse
@@ -8,8 +8,9 @@ from pathlib import Path
 from typing import Callable, TextIO
 
 from .cache import Cache
-from .config import Config, ConfigError, load_config
+from .config import APP_NAME, Config, ConfigError, default_config_path, load_config
 from .habits_edit import HabitCompletionError, edit_habits_file, parse_day
+from .init_files import DEFAULT_HABITS_PATH, SetupError, run_init
 from .registry import Registry
 from .render_json import render_json
 from .render_terminal import make_console, render_terminal
@@ -26,13 +27,22 @@ def default_registry() -> Registry:
     return registry
 
 
+def _non_blank(text: str) -> str:
+    if not text.strip():
+        raise argparse.ArgumentTypeError("must not be blank")
+    return text.strip()
+
+
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="dash", description="Modular CLI personal dashboard")
+    parser = argparse.ArgumentParser(prog=APP_NAME, description="Modular CLI personal dashboard")
     parser.add_argument("--json", action="store_true", help="print results as one JSON document")
     parser.add_argument("--refresh", action="store_true", help="bypass the cache")
     parser.add_argument("--config", type=Path, help="path to config file (default: platform config dir)")
 
-    commands = parser.add_subparsers(dest="command", metavar="{habit}")
+    commands = parser.add_subparsers(dest="command", metavar="{init,habit}")
+    init = commands.add_parser("init", help="create a starter config and habits file")
+    init.add_argument("--location", type=_non_blank, help="weather location for the starter config")
+    init.add_argument("--config", type=Path, default=argparse.SUPPRESS, help="where to write the config file")
     habit = commands.add_parser("habit", help="work with your habits file")
     habit_commands = habit.add_subparsers(dest="habit_command", required=True, metavar="{done}")
     done = habit_commands.add_parser("done", help="record a habit as completed")
@@ -58,16 +68,38 @@ def _habit_done(args: argparse.Namespace, now: datetime, stdout: TextIO, stderr:
         config = load_config(args.config)
         path = _habits_path(config, str(args.config) if args.config else "your config file")
     except ConfigError as exc:
-        print(f"dash: {exc}", file=stderr)
+        print(f"{APP_NAME}: {exc}", file=stderr)
         return 2
     try:
         day = parse_day(args.date, now.date())
         result = edit_habits_file(path, args.name, day)
     except HabitCompletionError as exc:
-        print(f"dash: {exc}", file=stderr)
+        print(f"{APP_NAME}: {exc}", file=stderr)
         return 1
     verb = "Recorded" if result.added else "Already recorded"
     print(f"{verb}: {result.habit} done on {result.day.isoformat()}", file=stdout)
+    return 0
+
+
+def _init(args: argparse.Namespace, stdout: TextIO, stderr: TextIO) -> int:
+    config_path = args.config or default_config_path()
+    habits_path = Path(DEFAULT_HABITS_PATH).expanduser()
+    try:
+        outcomes = run_init(config_path, habits_path, args.location)
+    except SetupError as exc:
+        print(f"{APP_NAME}: {exc}", file=stderr)
+        return 1
+    for outcome in outcomes:
+        label = "Created" if outcome.created else "Skipped (already exists)"
+        print(f"{label}: {outcome.path}", file=stdout)
+    run_cmd = APP_NAME if args.config is None else f"{APP_NAME} --config {config_path}"
+    print("\nNext steps:", file=stdout)
+    if args.location is None:
+        print(f"  1. Set your weather location in {config_path}", file=stdout)
+    print("  - GitHub: set the GITHUB_TOKEN environment variable, or set token_cmd in the\n"
+          '    config (for example token_cmd = "gh auth token"). Never paste a token into the config.',
+          file=stdout)
+    print(f"  - Run: {run_cmd}", file=stdout)
     return 0
 
 
@@ -85,13 +117,15 @@ def main(
     stderr = stderr or sys.stderr
     now = (clock or (lambda: datetime.now().astimezone()))()  # read once: header and JSON must agree
 
+    if args.command == "init":
+        return _init(args, stdout, stderr)
     if args.command == "habit":
         return _habit_done(args, now, stdout, stderr)
 
     try:
         config = load_config(args.config)
     except ConfigError as exc:
-        print(f"dash: {exc}", file=stderr)
+        print(f"{APP_NAME}: {exc}", file=stderr)
         return 2
 
     results = run_widgets(config, registry or default_registry(), cache or Cache(), refresh=args.refresh)

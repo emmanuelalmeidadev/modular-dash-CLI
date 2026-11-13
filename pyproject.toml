@@ -14,7 +14,7 @@ dependencies = [
 dev = ["pytest>=8"]
 
 [project.scripts]
-dash = "dash.cli:main"
+pdash = "dash.cli:main"
 
 [build-system]
 requires = ["hatchling"]

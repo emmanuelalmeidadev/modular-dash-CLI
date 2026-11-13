@@ -11,9 +11,11 @@ from typing import Any, Callable
 
 from platformdirs import user_cache_path
 
+from .config import APP_NAME
+
 
 def default_cache_dir() -> Path:
-    return user_cache_path("dash")
+    return user_cache_path(APP_NAME)
 
 
 class Cache:

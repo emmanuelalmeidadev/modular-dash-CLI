@@ -163,3 +163,92 @@ def test_plain_dash_and_json_unchanged_by_subcommands(tmp_path, fake_widget):
     code, out, err = run(tmp_path, fake_widget, '[[widgets]]\nid = "a"\n', ["--json"], [fake_widget("a")], lambda: NOW)
     doc = json.loads(out)
     assert code == 0 and err == "" and list(doc) == ["generated_at", "widgets"]
+
+
+# ---- init ----
+
+def init_run(tmp_path, monkeypatch, argv):
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))  # never touch the real home directory
+    (tmp_path / "home").mkdir(exist_ok=True)
+    out, err = io.StringIO(), io.StringIO()
+    code = main(argv, stdout=out, stderr=err, clock=lambda: NOW)
+    return code, out.getvalue(), err.getvalue()
+
+
+def test_init_creates_both_files_and_dashboard_runs_after(tmp_path, monkeypatch):
+    cfg = tmp_path / "conf" / "my.toml"
+    code, out, err = init_run(tmp_path, monkeypatch, ["init", "--config", str(cfg)])
+    habits = tmp_path / "home" / "habits.toml"
+    assert code == 0 and err == "" and cfg.exists() and habits.exists()
+    assert f"Created: {cfg}" in out and f"Created: {habits}" in out
+    # plain `pdash` right after init exits 0 (widgets are faked so no network is used)
+    from dash.cache import Cache
+    from dash.registry import Registry
+    monkeypatch.setenv("NO_COLOR", "1")
+    o2 = io.StringIO()
+    assert main(["--config", str(cfg)], stdout=o2, stderr=io.StringIO(), registry=Registry(),
+                cache=Cache(tmp_path / "c"), clock=lambda: NOW) == 0
+
+
+def test_init_default_config_path_lives_under_home(tmp_path, monkeypatch):
+    code, out, _ = init_run(tmp_path, monkeypatch, ["init"])
+    from dash.config import default_config_path
+    assert code == 0 and str(default_config_path()).startswith(str(tmp_path / "home"))
+    assert default_config_path().exists()
+
+
+def test_init_skips_existing_config_and_still_creates_habits(tmp_path, monkeypatch):
+    cfg = tmp_path / "my.toml"
+    cfg.write_text("mine")
+    code, out, _ = init_run(tmp_path, monkeypatch, ["init", "--config", str(cfg)])
+    assert code == 0 and cfg.read_text() == "mine"
+    assert f"Skipped (already exists): {cfg}" in out and "Created:" in out
+
+
+def test_init_everything_exists_exit_zero(tmp_path, monkeypatch):
+    cfg = tmp_path / "my.toml"
+    init_run(tmp_path, monkeypatch, ["init", "--config", str(cfg)])
+    before = cfg.read_bytes()
+    code, out, _ = init_run(tmp_path, monkeypatch, ["init", "--config", str(cfg)])
+    assert code == 0 and out.count("Skipped (already exists)") == 2 and "Created:" not in out
+    assert cfg.read_bytes() == before
+
+
+def test_init_location_option(tmp_path, monkeypatch):
+    from dash.config import load_config
+    cfg = tmp_path / "my.toml"
+    code, out, _ = init_run(tmp_path, monkeypatch, ["init", "--config", str(cfg), "--location", "Culiacan"])
+    assert code == 0 and load_config(cfg).widgets[0].options["location"] == "Culiacan"
+    assert "weather location" not in out  # no "edit your location" step when it was supplied
+
+
+def test_init_next_steps_without_location_mention_it(tmp_path, monkeypatch):
+    _, out, _ = init_run(tmp_path, monkeypatch, ["init", "--config", str(tmp_path / "my.toml")])
+    assert "weather location" in out
+
+
+def test_init_next_steps_mention_token_options_and_never_a_token(tmp_path, monkeypatch):
+    monkeypatch.setenv("GITHUB_TOKEN", "ghp_SECRETVALUE123")
+    _, out, err = init_run(tmp_path, monkeypatch, ["init", "--config", str(tmp_path / "my.toml")])
+    assert "GITHUB_TOKEN" in out and "token_cmd" in out
+    assert "ghp_SECRETVALUE123" not in out + err and "ghp_SECRETVALUE123" not in (tmp_path / "my.toml").read_text()
+
+
+def test_init_failure_exits_nonzero_names_path_no_partial_file(tmp_path, monkeypatch):
+    ro = tmp_path / "ro"
+    ro.mkdir()
+    ro.chmod(0o500)
+    try:
+        code, out, err = init_run(tmp_path, monkeypatch, ["init", "--config", str(ro / "sub" / "my.toml")])
+    finally:
+        ro.chmod(0o700)
+    assert code == 1 and err.startswith("pdash: ") and str(ro) in err
+    assert not (ro / "sub").exists()
+
+
+@pytest.mark.parametrize("bad", ["", "   "])
+def test_init_rejects_blank_location(tmp_path, monkeypatch, bad):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    with pytest.raises(SystemExit):
+        main(["init", "--config", str(tmp_path / "x.toml"), "--location", bad])
+    assert not (tmp_path / "x.toml").exists()
